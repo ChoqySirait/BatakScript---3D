@@ -83,3 +83,4 @@ func SubmitLeaderboard(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+

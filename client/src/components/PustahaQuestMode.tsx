@@ -259,3 +259,4 @@ export default function PustahaQuestMode({ onCanvasUpdate }: PustahaQuestModePro
     </div>
   );
 }
+

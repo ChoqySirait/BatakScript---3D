@@ -72,3 +72,4 @@ func GetQuestProgress(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+
