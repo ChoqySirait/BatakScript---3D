@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, Library, Feather } from 'lucide-react';
+import { BookOpen, Library, Feather, Flame } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const NAV_LINKS = [
   { href: '/',        label: 'Sandbox',    icon: Feather },
   { href: '/glyphs',  label: 'Kamus Glyph', icon: Library },
   { href: '/lessons', label: 'Pelajaran',  icon: BookOpen },
+  { href: '/quiz',    label: 'Kuis Kilat', icon: Flame },
 ];
 
 export default function Navbar() {
