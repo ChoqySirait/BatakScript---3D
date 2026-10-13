@@ -40,5 +40,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+
+  /** GET /api/v1/lessons */
+  lessons: () =>
+    request<import('@/types').LessonsResponse>('/lessons'),
+
+  /** GET /api/v1/progress/:session_id */
+  getUserProgress: (sessionId: string) =>
+    request<import('@/types').UserProgressResponse>(`/progress/${sessionId}`),
 };
 

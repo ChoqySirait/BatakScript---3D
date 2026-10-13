@@ -40,3 +40,34 @@ export interface ProgressResponse {
   message: string;
 }
 
+export interface Lesson {
+  id: number;
+  level: number;
+  title: string;
+  description: string;
+  target_glyph: string;
+  unicode_hex: string;
+  latin_sound: string;
+  reference_points: string;
+  created_at?: string;
+}
+
+export interface LessonsResponse {
+  count: number;
+  lessons: Lesson[];
+}
+
+export interface UserProgressItem {
+  id: number;
+  session_id: string;
+  lesson_id: number;
+  accuracy: number;
+  completed: boolean;
+  updated_at?: string;
+}
+
+export interface UserProgressResponse {
+  session_id: string;
+  progress: UserProgressItem[];
+}
+

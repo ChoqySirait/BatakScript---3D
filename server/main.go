@@ -53,8 +53,10 @@ func main() {
 	{
 		api.GET("/health",       handler.HealthCheck)
 		api.GET("/glyphs",       handler.GetGlyphs)
+		api.GET("/lessons",      handler.GetLessons(db))
 		api.POST("/transliterate", handler.Transliterate)
 		api.POST("/progress",    handler.SubmitProgress(db))
+		api.GET("/progress/:session_id", handler.GetUserProgress(db))
 	}
 
 	// ── Start ─────────────────────────────────────────────────────────────────
