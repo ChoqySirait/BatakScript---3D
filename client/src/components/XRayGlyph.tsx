@@ -106,3 +106,4 @@ export default function XRayGlyph({ token }: Props) {
     </div>
   );
 }
+

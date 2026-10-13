@@ -1,5 +1,5 @@
-@import "tailwindcss";
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Batak&display=swap');
+@import "tailwindcss";
 
 /* ── BatakScript 3D — Design Tokens ─────────────────────────────────────── */
 :root {

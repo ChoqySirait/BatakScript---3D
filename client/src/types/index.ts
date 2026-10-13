@@ -39,3 +39,4 @@ export interface ProgressResponse {
   next_lesson_unlocked: boolean;
   message: string;
 }
+
