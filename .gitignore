@@ -1,0 +1,48 @@
+# ===========================
+# BatakScript 3D - .gitignore
+# ===========================
+
+# --- Node / Frontend (client/) ---
+node_modules/
+client/node_modules/
+client/.next/
+client/out/
+client/.env
+client/.env.local
+client/.env.development.local
+client/.env.test.local
+client/.env.production.local
+client/npm-debug.log*
+client/yarn-debug.log*
+client/yarn-error.log*
+
+# --- Go / Backend (server/) ---
+server/bin/
+server/*.exe
+server/batakscript-server
+server/batakscript-server.exe
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# --- Database ---
+*.db
+*.sqlite
+*.sqlite3
+server/*.db
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Environment ---
+.env
+.env.*
+!.env.example
+
