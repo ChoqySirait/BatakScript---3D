@@ -68,7 +68,7 @@ export default function LessonsPage() {
   const progressPercent = Math.round((completedCount / INA_NI_SURAT.length) * 100);
 
   return (
-    <div className="space-y-8">
+    <div className="mx-auto max-w-7xl px-4 py-8 space-y-8">
       {/* Header */}
       <div className="flex flex-col gap-4 border-b border-charcoal-border pb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">

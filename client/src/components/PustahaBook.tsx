@@ -197,8 +197,8 @@ export function PustahaBook({
   const D = 0.08;
 
   // Real-time animation loop: fold lerp + floating bob + mirror updates
-  useFrame(({ clock }) => {
-    const t = clock.elapsedTime;
+  useFrame(() => {
+    const t = performance.now() * 0.001;
 
     // Gentle floating breathing motion
     if (rootGroupRef.current) {

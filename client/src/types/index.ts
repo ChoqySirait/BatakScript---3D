@@ -71,3 +71,61 @@ export interface UserProgressResponse {
   progress: UserProgressItem[];
 }
 
+export interface QuestProgressItem {
+  id: number;
+  session_id: string;
+  chapter_id: number;
+  accuracy: number;
+  unlocked: boolean;
+  updated_at?: string;
+}
+
+export interface QuestProgressResponse {
+  session_id: string;
+  chapters: QuestProgressItem[];
+}
+
+export interface SubmitQuestRequest {
+  session_id: string;
+  chapter_id: number;
+  accuracy: number;
+}
+
+export interface SubmitQuestResponse {
+  success: boolean;
+  session_id: string;
+  chapter_id: number;
+  accuracy: number;
+  unlocked: boolean;
+  next_chapter_unlocked: boolean;
+  message: string;
+}
+
+export interface LeaderboardEntry {
+  id: number;
+  player_name: string;
+  score: number;
+  accuracy: number;
+  max_streak: number;
+  created_at: string;
+}
+
+export interface LeaderboardResponse {
+  count: number;
+  entries: LeaderboardEntry[];
+}
+
+export interface SubmitLeaderboardRequest {
+  player_name: string;
+  score: number;
+  accuracy: number;
+  max_streak: number;
+}
+
+export interface SubmitLeaderboardResponse {
+  success: boolean;
+  rank: number;
+  entry: LeaderboardEntry;
+  message: string;
+}
+

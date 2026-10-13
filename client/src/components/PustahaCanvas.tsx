@@ -41,7 +41,8 @@ export default function PustahaCanvas({
         intensity={1.6}
         color="#FFF2D6"
         castShadow
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize-width={1024}
+        shadow-mapSize-height={1024}
         shadow-bias={-0.0001}
       />
 

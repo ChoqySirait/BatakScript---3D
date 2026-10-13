@@ -14,6 +14,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { sound } from '@/lib/audio';
+import { api } from '@/lib/api';
+import LeaderboardModal from './LeaderboardModal';
 
 interface QuizQuestion {
   id: number;
@@ -175,6 +177,10 @@ export default function SpeedQuiz() {
   const [correctCount, setCorrectCount] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
   const [isStarted, setIsStarted] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [submittedRank, setSubmittedRank] = useState<number | null>(null);
+  const [submittingLb, setSubmittingLb] = useState(false);
+  const [showLeaderboard, setShowLeaderboard] = useState(false);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -346,6 +352,69 @@ export default function SpeedQuiz() {
           </div>
         </div>
 
+        {/* Leaderboard Submission Box */}
+        <div className="rounded-xl border border-charcoal-border bg-charcoal p-4 text-left space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold uppercase tracking-wider text-bone-dim">
+              Catat Namamu di Papan Peringkat
+            </span>
+            <button
+              onClick={() => {
+                sound.playClickSound();
+                setShowLeaderboard(true);
+              }}
+              className="text-xs text-gold hover:underline font-semibold"
+            >
+              Lihat Ranking 🏆
+            </button>
+          </div>
+
+          {submittedRank ? (
+            <div className="flex items-center gap-2 rounded-lg bg-gold/15 p-2.5 text-xs font-bold text-gold">
+              <Trophy size={16} />
+              <span>Terdaftar! Posisi kamu di Papan Peringkat: Peringkat #{submittedRank}</span>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Ketik namamu / alias (contoh: Datu Muda)"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                maxLength={30}
+                className="flex-1 rounded-xl border border-charcoal-border bg-charcoal-light px-3 py-2 text-xs text-bone placeholder-bone-dim outline-none focus:border-gold"
+              />
+              <button
+                disabled={submittingLb || playerName.trim().length < 2}
+                onClick={async () => {
+                  sound.playClickSound();
+                  setSubmittingLb(true);
+                  try {
+                    const acc = Math.round((correctCount / QUIZ_BANK.length) * 100);
+                    const res = await api.submitLeaderboard({
+                      player_name: playerName.trim(),
+                      score,
+                      accuracy: acc,
+                      max_streak: maxStreak,
+                    });
+                    if (res?.rank) {
+                      setSubmittedRank(res.rank);
+                      sound.playEthnicSuccessChime();
+                    }
+                  } catch (err) {
+                    console.warn(err);
+                  } finally {
+                    setSubmittingLb(false);
+                  }
+                }}
+                className="rounded-xl bg-gold px-4 py-2 text-xs font-bold text-charcoal hover:bg-gold-dim disabled:opacity-40 transition-all"
+              >
+                {submittingLb ? 'Menyimpan…' : 'Kirim Skor'}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-3">
           <button
             onClick={handleRestart}
@@ -354,7 +423,23 @@ export default function SpeedQuiz() {
             <RotateCcw size={16} />
             Ulangi Kuis
           </button>
+          <button
+            onClick={() => {
+              sound.playClickSound();
+              setShowLeaderboard(true);
+            }}
+            className="flex items-center justify-center gap-2 rounded-xl border border-charcoal-border bg-charcoal px-5 py-3 text-sm font-semibold text-bone hover:border-gold hover:text-gold transition-all"
+          >
+            <Trophy size={16} className="text-gold" />
+            Papan Peringkat
+          </button>
         </div>
+
+        <LeaderboardModal
+          isOpen={showLeaderboard}
+          onClose={() => setShowLeaderboard(false)}
+          highlightPlayer={playerName}
+        />
       </div>
     );
   }

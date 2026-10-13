@@ -26,13 +26,19 @@ func main() {
 	log.Println("[db] connected to batakscript.db")
 
 	// Auto-migrate models.
-	if err := db.AutoMigrate(&model.Lesson{}, &model.UserProgress{}); err != nil {
+	if err := db.AutoMigrate(
+		&model.Lesson{},
+		&model.UserProgress{},
+		&model.QuestProgress{},
+		&model.LeaderboardEntry{},
+	); err != nil {
 		log.Fatalf("[db] migration error: %v", err)
 	}
 	log.Println("[db] migration complete")
 
-	// Seed initial lesson data.
+	// Seed initial lesson and leaderboard data.
 	service.SeedLessons(db)
+	handler.SeedLeaderboard(db)
 
 	// ── Gin router ────────────────────────────────────────────────────────────
 	r := gin.New()
@@ -57,6 +63,14 @@ func main() {
 		api.POST("/transliterate", handler.Transliterate)
 		api.POST("/progress",    handler.SubmitProgress(db))
 		api.GET("/progress/:session_id", handler.GetUserProgress(db))
+
+		// Quest Mode endpoints
+		api.POST("/quest/progress", handler.SubmitQuestProgress(db))
+		api.GET("/quest/progress/:session_id", handler.GetQuestProgress(db))
+
+		// Leaderboard endpoints
+		api.GET("/leaderboard", handler.GetLeaderboard(db))
+		api.POST("/leaderboard", handler.SubmitLeaderboard(db))
 	}
 
 	// ── Swagger UI Documentation ──────────────────────────────────────────────

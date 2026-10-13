@@ -129,6 +129,67 @@ const SwaggerDocJSON = `{
           }
         }
       }
+    },
+    "/quest/progress": {
+      "post": {
+        "summary": "Simpan progres teka-teki Babad Pustaha Quest",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["session_id", "chapter_id", "accuracy"],
+                "properties": {
+                  "session_id": { "type": "string" },
+                  "chapter_id": { "type": "integer" },
+                  "accuracy": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status pembukaan bab babad berikutnya"
+          }
+        }
+      }
+    },
+    "/leaderboard": {
+      "get": {
+        "summary": "Ambil 20 skor tertinggi Papan Peringkat",
+        "responses": {
+          "200": {
+            "description": "Daftar peringkat tertinggi"
+          }
+        }
+      },
+      "post": {
+        "summary": "Kirimkan skor dan nama pemain ke Papan Peringkat",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["player_name", "score", "accuracy", "max_streak"],
+                "properties": {
+                  "player_name": { "type": "string" },
+                  "score": { "type": "integer" },
+                  "accuracy": { "type": "number" },
+                  "max_streak": { "type": "integer" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Peringkat pemain dan status penyimpanan"
+          }
+        }
+      }
     }
   }
 }`
@@ -177,3 +238,4 @@ func SwaggerDoc(c *gin.Context) {
 	c.Header("Content-Type", "application/json; charset=utf-8")
 	c.String(http.StatusOK, SwaggerDocJSON)
 }
+

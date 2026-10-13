@@ -48,5 +48,27 @@ export const api = {
   /** GET /api/v1/progress/:session_id */
   getUserProgress: (sessionId: string) =>
     request<import('@/types').UserProgressResponse>(`/progress/${sessionId}`),
+
+  /** POST /api/v1/quest/progress */
+  submitQuestProgress: (data: import('@/types').SubmitQuestRequest) =>
+    request<import('@/types').SubmitQuestResponse>('/quest/progress', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
+
+  /** GET /api/v1/quest/progress/:session_id */
+  getQuestProgress: (sessionId: string) =>
+    request<import('@/types').QuestProgressResponse>(`/quest/progress/${sessionId}`),
+
+  /** GET /api/v1/leaderboard */
+  leaderboard: () =>
+    request<import('@/types').LeaderboardResponse>('/leaderboard'),
+
+  /** POST /api/v1/leaderboard */
+  submitLeaderboard: (data: import('@/types').SubmitLeaderboardRequest) =>
+    request<import('@/types').SubmitLeaderboardResponse>('/leaderboard', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    }),
 };
 

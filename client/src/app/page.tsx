@@ -1,34 +1,46 @@
 'use client';
 
 import React, { useState, useCallback } from 'react';
-import { Sparkles, BookOpen, Layers } from 'lucide-react';
 import PustahaScene from '@/components/PustahaScene';
 import StrokeCanvas from '@/components/StrokeCanvas';
+import FreeCalligraphyStudio from '@/components/FreeCalligraphyStudio';
+import PustahaQuestMode from '@/components/PustahaQuestMode';
 import TransliterationSandbox from '@/components/TransliterationSandbox';
-import HudDock from '@/components/HudDock';
+import BottomIslandDock, { StudioMode } from '@/components/BottomIslandDock';
+import RightDrawer from '@/components/RightDrawer';
 import { INA_NI_SURAT } from '@/components/PustahaBook';
 
 export default function HomePage() {
-  // Shared state: 3D book page ↔ active lesson info ↔ StrokeCanvas
+  // Active page & 3D book state
   const [activeIdx, setActiveIdx] = useState(0);
-  const [mirrorCanvas, setMirrorCanvas] = useState<HTMLCanvasElement | null>(null);
   const [foldProgress, setFoldProgress] = useState(0.18);
+  const [mirrorCanvas, setMirrorCanvas] = useState<HTMLCanvasElement | null>(null);
+
+  // Active studio mode
+  const [activeMode, setActiveMode] = useState<StudioMode>('tracing');
+  const [isDrawerOpen, setIsDrawerOpen] = useState(true);
+
+  // Telemetry
   const [lastScore, setLastScore] = useState<number | null>(null);
   const [streakCount, setStreakCount] = useState(0);
 
   const active = INA_NI_SURAT[activeIdx];
 
-  const handleNextLesson = () => {
+  const handleNextPage = () => {
     setActiveIdx((prev) => (prev + 1) % INA_NI_SURAT.length);
+  };
+
+  const handlePrevPage = () => {
+    setActiveIdx((prev) => (prev - 1 + INA_NI_SURAT.length) % INA_NI_SURAT.length);
+  };
+
+  const handleToggleFold = () => {
+    setFoldProgress((prev) => (prev > 0.5 ? 0.15 : 0.85));
   };
 
   const handleCanvasUpdate = useCallback((canvas: HTMLCanvasElement) => {
     setMirrorCanvas(canvas);
   }, []);
-
-  const handleToggleFold = () => {
-    setFoldProgress((prev) => (prev > 0.5 ? 0.15 : 0.85));
-  };
 
   const handleLessonSuccess = () => {
     setLastScore((prev) => (prev !== null ? Math.max(prev, 85) : 88));
@@ -41,92 +53,86 @@ export default function HomePage() {
     });
   };
 
+  const getDrawerMeta = () => {
+    switch (activeMode) {
+      case 'quest':
+        return { title: 'Babad Pustaha Quest', badge: 'Mode Petualangan' };
+      case 'calligraphy':
+        return { title: 'Studio Kaligrafi Bebas', badge: 'Ekspor PNG' };
+      case 'sandbox':
+        return { title: 'Sandbox Transliterasi', badge: 'X-Ray Anatomi' };
+      case 'tracing':
+      default:
+        return { title: `Panduan Tracing Aksara ${active.latin}`, badge: 'Presisi 64-Titik' };
+    }
+  };
+
+  const drawerMeta = getDrawerMeta();
+
   return (
-    <div className="space-y-12 pb-24">
-      {/* ── Hero ── */}
-      <div className="text-center space-y-3 pt-4">
-        <h1 className="text-3xl font-bold text-bone">
-          Pelajari <span className="text-crimson">Surat Batak Toba</span>
-        </h1>
-        <p className="mx-auto max-w-xl text-sm text-bone-muted leading-relaxed">
-          Putar buku 3D Pustaha Laklak akordeon, latih goresan presisi 64-titik dengan evaluasi arah vektor
-          dan visual error heatmap, serta saksikan goresanmu tercermin langsung di atas permukaan 3D!
-        </p>
-        <div className="flex flex-wrap justify-center gap-4 text-xs text-bone-dim">
-          {[
-            '19 Ina ni Surat',
-            '3D Accordion Laklak',
-            'Real-Time 3D Mirroring',
-            'Gestur 64-Titik Presisi',
-            'Error Heatmap',
-            'Audio Haptic Prosedural',
-          ].map((f) => (
-            <span key={f} className="flex items-center gap-1">
-              <Sparkles size={11} className="text-crimson" /> {f}
-            </span>
-          ))}
-        </div>
-      </div>
+    <div className="relative min-h-[calc(100vh-4rem)] w-full overflow-hidden select-none">
+      {/* ── 1. Full-Screen 3D Immersion Background Stage ── */}
+      <PustahaScene
+        isFullScreen={true}
+        pageIndex={activeIdx}
+        onGlyphChange={setActiveIdx}
+        sourceCanvas={mirrorCanvas}
+        foldProgress={foldProgress}
+        onFoldChange={setFoldProgress}
+      />
 
-      {/* ── 3D Scene & Tracing Canvas Grid ── */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between border-b border-charcoal-border pb-3">
-          <div className="flex items-center gap-2">
-            <BookOpen size={20} className="text-crimson" />
-            <h2 className="text-lg font-bold text-bone">
-              Pustaha Laklak Akordeon &amp; Kanvas Tracing Presisi
-            </h2>
-          </div>
-          <div className="flex items-center gap-2 text-xs font-mono text-bone-muted">
-            <span className="batak-text text-xl text-gold">{active.glyph}</span>
-            <span>{active.latin} ({active.sound})</span>
-          </div>
-        </div>
+      {/* ── 2. Floating Glass Drawer (Right Side) ── */}
+      <RightDrawer
+        isOpen={isDrawerOpen}
+        onToggle={() => setIsDrawerOpen((v) => !v)}
+        title={drawerMeta.title}
+        badge={drawerMeta.badge}
+      >
+        {activeMode === 'tracing' && (
+          <StrokeCanvas
+            lessonId={activeIdx + 1}
+            targetGlyph={active.glyph}
+            latinSound={active.latin}
+            glyphTitle={`Modul ${activeIdx + 1}: Aksara ${active.latin} (${active.glyph})`}
+            onSuccess={handleLessonSuccess}
+            onNextLesson={handleNextPage}
+            hasNextLesson={activeIdx < INA_NI_SURAT.length - 1}
+            onCanvasUpdate={handleCanvasUpdate}
+          />
+        )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left: 3D Pustaha Laklak (7 cols) with Live Canvas Mirroring */}
-          <div className="lg:col-span-7">
-            <PustahaScene
-              onGlyphChange={setActiveIdx}
-              sourceCanvas={mirrorCanvas}
-              foldProgress={foldProgress}
-              onFoldChange={setFoldProgress}
-            />
-          </div>
+        {activeMode === 'quest' && (
+          <PustahaQuestMode onCanvasUpdate={handleCanvasUpdate} />
+        )}
 
-          {/* Right: Interactive Stroke Canvas (5 cols) */}
-          <div className="lg:col-span-5">
-            <StrokeCanvas
-              lessonId={activeIdx + 1}
-              targetGlyph={active.glyph}
-              latinSound={active.latin}
-              glyphTitle={`Latihan Menulis Aksara ${active.latin}`}
-              onSuccess={handleLessonSuccess}
-              onNextLesson={handleNextLesson}
-              hasNextLesson={activeIdx < INA_NI_SURAT.length - 1}
-              onCanvasUpdate={handleCanvasUpdate}
-            />
-          </div>
-        </div>
-      </section>
+        {activeMode === 'calligraphy' && (
+          <FreeCalligraphyStudio onCanvasUpdate={handleCanvasUpdate} />
+        )}
 
-      {/* ── Separator ── */}
-      <div className="relative">
-        <hr className="border-charcoal-border" />
-        <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-charcoal px-4 text-xs text-bone-dim uppercase tracking-widest">
-          Sandbox Transliterasi &amp; X-Ray
-        </span>
-      </div>
+        {activeMode === 'sandbox' && (
+          <TransliterationSandbox />
+        )}
+      </RightDrawer>
 
-      {/* ── Transliteration sandbox ── */}
-      <TransliterationSandbox />
-
-      {/* ── Floating Glassmorphism HUD Dock ── */}
-      <HudDock
-        lastScore={lastScore}
+      {/* ── 3. Bottom Island Dock (Clean Minimalist Island) ── */}
+      <BottomIslandDock
+        currentPage={activeIdx + 1}
+        totalPages={INA_NI_SURAT.length}
+        currentGlyph={active.glyph}
+        currentLatin={active.latin}
+        onPrevPage={handlePrevPage}
+        onNextPage={handleNextPage}
         foldProgress={foldProgress}
         onToggleFold={handleToggleFold}
+        activeMode={activeMode}
+        onSelectMode={(mode) => {
+          setActiveMode(mode);
+          setIsDrawerOpen(true);
+        }}
+        lastScore={lastScore}
         streakCount={streakCount}
+        isDrawerOpen={isDrawerOpen}
+        onToggleDrawer={() => setIsDrawerOpen((v) => !v)}
       />
     </div>
   );

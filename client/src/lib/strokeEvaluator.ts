@@ -256,3 +256,4 @@ export function evaluateUserStrokes(
     isPassed: finalScore >= 75,
   };
 }
+

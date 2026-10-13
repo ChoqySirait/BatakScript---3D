@@ -25,3 +25,23 @@ type UserProgress struct {
 	UpdatedAt time.Time `                               json:"updated_at"`
 }
 
+// QuestProgress tracks unlocked ancient manuscript chapters in Pustaha Quest Mode.
+type QuestProgress struct {
+	ID        uint      `gorm:"primaryKey"             json:"id"`
+	SessionID string    `gorm:"size:64;index;not null" json:"session_id"`
+	ChapterID int       `gorm:"not null"               json:"chapter_id"` // 1 - 5
+	Accuracy  float64   `gorm:"not null"               json:"accuracy"`
+	Unlocked  bool      `gorm:"default:false"          json:"unlocked"`
+	UpdatedAt time.Time `                              json:"updated_at"`
+}
+
+// LeaderboardEntry tracks high scores in Speed Recognition Quiz.
+type LeaderboardEntry struct {
+	ID         uint      `gorm:"primaryKey"             json:"id"`
+	PlayerName string    `gorm:"size:50;not null"       json:"player_name"`
+	Score      int       `gorm:"index;not null"         json:"score"`
+	Accuracy   float64   `gorm:"not null"               json:"accuracy"`
+	MaxStreak  int       `gorm:"not null"               json:"max_streak"`
+	CreatedAt  time.Time `                              json:"created_at"`
+}
+

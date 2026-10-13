@@ -15,13 +15,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="id" suppressHydrationWarning>
-      <body className="min-h-screen bg-charcoal text-bone antialiased">
+      <body className="min-h-screen bg-[#0D0D0E] text-bone antialiased overflow-x-hidden">
         <Navbar />
-        <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
-        <footer className="mt-16 border-t border-charcoal-border py-6 text-center text-xs text-bone-dim">
-          <span className="batak-text mr-2 text-lg text-gold">ᯅᯖᯂ᯲</span>
-          BatakScript 3D · Melestarikan Surat Batak Toba
-        </footer>
+        <main className="relative min-h-[calc(100vh-3.8rem)] w-full">{children}</main>
       </body>
     </html>
   );
