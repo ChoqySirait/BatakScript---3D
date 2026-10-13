@@ -3,20 +3,25 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   RotateCcw,
+  Undo2,
   CheckCircle2,
-  Sparkles,
   Trophy,
   AlertCircle,
   ArrowRight,
   Loader2,
+  Layers,
+  Sparkles,
+  Compass,
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
-
-interface Point {
-  x: number;
-  y: number;
-}
+import {
+  Point,
+  HeatmapSegment,
+  EvaluationResult,
+  evaluateUserStrokes,
+} from '@/lib/strokeEvaluator';
+import { sound } from '@/lib/audio';
 
 interface StrokeCanvasProps {
   lessonId: number;
@@ -26,9 +31,11 @@ interface StrokeCanvasProps {
   onSuccess?: () => void;
   onNextLesson?: () => void;
   hasNextLesson?: boolean;
+  /** Expose the raw canvas element for Real-Time 3D Mirroring */
+  onCanvasUpdate?: (canvas: HTMLCanvasElement) => void;
 }
 
-// Particle for celebration animation
+// Particle structure for celebration
 interface Particle {
   x: number;
   y: number;
@@ -47,24 +54,34 @@ export default function StrokeCanvas({
   onSuccess,
   onNextLesson,
   hasNextLesson = true,
+  onCanvasUpdate,
 }: StrokeCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const particleCanvasRef = useRef<HTMLCanvasElement | null>(null);
 
+  // Stroke states (multi-stroke support)
   const [isDrawing, setIsDrawing] = useState(false);
   const [userStrokes, setUserStrokes] = useState<Point[][]>([]);
   const [currentStroke, setCurrentStroke] = useState<Point[]>([]);
   const [referencePoints, setReferencePoints] = useState<Point[]>([]);
-  const [score, setScore] = useState<number | null>(null);
+  const [heatmapSegments, setHeatmapSegments] = useState<HeatmapSegment[]>([]);
+
+  // Telemetry & evaluation results
+  const [evaluation, setEvaluation] = useState<EvaluationResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [sessionId, setSessionId] = useState<string>('guest-session');
+  const [showHeatmap, setShowHeatmap] = useState(true);
 
-  // Particle animation loop ref
+  // Last pointer coordinates for velocity calculation
+  const lastPosRef = useRef<Point | null>(null);
+  const lastTimeRef = useRef<number>(0);
+
+  // Particles ref for celebration
   const particlesRef = useRef<Particle[]>([]);
   const animFrameRef = useRef<number | null>(null);
 
-  // Initialize or fetch session ID from localStorage
+  // Initialize session ID
   useEffect(() => {
     if (typeof window !== 'undefined') {
       let sid = localStorage.getItem('batakscript_session_id');
@@ -119,7 +136,7 @@ export default function StrokeCanvas({
     handleClear();
   }, [targetGlyph]);
 
-  // Redraw canvas with ghost glyph and user strokes
+  // Redraw canvas: ghost glyph, strokes, and visual error heatmap
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -129,13 +146,13 @@ export default function StrokeCanvas({
     const w = canvas.width;
     const h = canvas.height;
 
-    // Dark charcoal background
+    // Dark charcoal OLED background
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = '#1C1C1E';
+    ctx.fillStyle = '#0D0D0E';
     ctx.fillRect(0, 0, w, h);
 
-    // Grid guide lines (subtle)
-    ctx.strokeStyle = 'rgba(74, 74, 76, 0.35)';
+    // Subtle alignment grid
+    ctx.strokeStyle = 'rgba(74, 74, 76, 0.3)';
     ctx.lineWidth = 1;
     ctx.setLineDash([4, 4]);
 
@@ -148,51 +165,72 @@ export default function StrokeCanvas({
 
     ctx.setLineDash([]); // Reset dash
 
-    // Ghost glyph (transparent gold/bone silhouette)
+    // Ghost glyph (translucent gold silhouette)
     ctx.save();
     ctx.font = 'bold 220px "Noto Sans Batak", serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillStyle = 'rgba(255, 215, 0, 0.18)'; // Translucent gold
+    ctx.fillStyle = 'rgba(255, 215, 0, 0.16)';
     ctx.fillText(targetGlyph, w / 2, h / 2 + 10);
 
-    // Faint outline for the ghost glyph
-    ctx.strokeStyle = 'rgba(245, 240, 232, 0.1)';
+    ctx.strokeStyle = 'rgba(245, 240, 232, 0.08)';
     ctx.lineWidth = 2;
     ctx.strokeText(targetGlyph, w / 2, h / 2 + 10);
     ctx.restore();
 
-    // Render completed user strokes
-    const allStrokesToDraw = [...userStrokes];
-    if (currentStroke.length > 0) {
-      allStrokesToDraw.push(currentStroke);
-    }
-
-    for (const stroke of allStrokesToDraw) {
-      if (stroke.length < 2) continue;
-
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(stroke[0].x, stroke[0].y);
-      for (let i = 1; i < stroke.length; i++) {
-        ctx.lineTo(stroke[i].x, stroke[i].y);
+    // ── Render Error Heatmap if evaluated and active ──────────────────────────
+    if (evaluation && showHeatmap && heatmapSegments.length > 0) {
+      for (const seg of heatmapSegments) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(seg.p1.x, seg.p1.y);
+        ctx.lineTo(seg.p2.x, seg.p2.y);
+        ctx.strokeStyle = seg.color;
+        ctx.lineWidth = 10;
+        ctx.lineCap = 'round';
+        ctx.shadowColor = seg.color;
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
       }
-      ctx.strokeStyle = '#DC143C'; // Batak crimson brush stroke
-      ctx.lineWidth = 9;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
-      ctx.shadowColor = '#FF1A4A';
-      ctx.shadowBlur = 8;
-      ctx.stroke();
-      ctx.restore();
+    } else {
+      // ── Render standard strokes ───────────────────────────────────────────
+      const allStrokes = [...userStrokes];
+      if (currentStroke.length > 0) {
+        allStrokes.push(currentStroke);
+      }
+
+      for (const stroke of allStrokes) {
+        if (stroke.length < 2) continue;
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.moveTo(stroke[0].x, stroke[0].y);
+        for (let i = 1; i < stroke.length; i++) {
+          ctx.lineTo(stroke[i].x, stroke[i].y);
+        }
+        ctx.strokeStyle = '#DC143C'; // Batak crimson
+        ctx.lineWidth = 9;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = '#FF1A4A';
+        ctx.shadowBlur = 8;
+        ctx.stroke();
+        ctx.restore();
+      }
     }
-  }, [targetGlyph, userStrokes, currentStroke]);
+
+    // Notify 3D mirroring listener
+    if (onCanvasUpdate) {
+      onCanvasUpdate(canvas);
+    }
+  }, [targetGlyph, userStrokes, currentStroke, evaluation, showHeatmap, heatmapSegments, onCanvasUpdate]);
 
   useEffect(() => {
     redraw();
   }, [redraw]);
 
-  // Pointer event handlers for cross-platform drawing
+  // Pointer event handlers with velocity audio feedback
   const getCanvasPos = (e: React.PointerEvent<HTMLCanvasElement>): Point => {
     const canvas = canvasRef.current;
     if (!canvas) return { x: 0, y: 0 };
@@ -210,7 +248,12 @@ export default function StrokeCanvas({
     const p = getCanvasPos(e);
     setIsDrawing(true);
     setCurrentStroke([p]);
-    setScore(null);
+    lastPosRef.current = p;
+    lastTimeRef.current = performance.now();
+
+    // Reset evaluation when drawing new stroke
+    setEvaluation(null);
+    setHeatmapSegments([]);
     setFeedback(null);
   };
 
@@ -218,6 +261,19 @@ export default function StrokeCanvas({
     if (!isDrawing) return;
     const p = getCanvasPos(e);
     setCurrentStroke((prev) => [...prev, p]);
+
+    // Audio friction feedback based on pointer speed
+    const now = performance.now();
+    if (lastPosRef.current) {
+      const dx = p.x - lastPosRef.current.x;
+      const dy = p.y - lastPosRef.current.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dt = Math.max(1, now - lastTimeRef.current);
+      const speed = dist / dt; // pixels per ms
+      sound.playBrushScratch(speed);
+    }
+    lastPosRef.current = p;
+    lastTimeRef.current = now;
   };
 
   const handlePointerUp = () => {
@@ -227,37 +283,52 @@ export default function StrokeCanvas({
       setUserStrokes((prev) => [...prev, currentStroke]);
       setCurrentStroke([]);
     }
+    lastPosRef.current = null;
   };
 
+  // Undo last stroke (multi-stroke convenience)
+  const handleUndo = () => {
+    sound.playClickSound();
+    setUserStrokes((prev) => prev.slice(0, -1));
+    setEvaluation(null);
+    setHeatmapSegments([]);
+    setFeedback(null);
+  };
+
+  // Clear all strokes
   const handleClear = () => {
+    sound.playClickSound();
     setUserStrokes([]);
     setCurrentStroke([]);
-    setScore(null);
+    setEvaluation(null);
+    setHeatmapSegments([]);
     setFeedback(null);
   };
 
   // Trigger celebration particles
   const triggerCelebration = () => {
+    sound.playEthnicSuccessChime();
+
     const pCanvas = particleCanvasRef.current;
     if (!pCanvas) return;
     const ctx = pCanvas.getContext('2d');
     if (!ctx) return;
 
-    const colors = ['#FFD700', '#DC143C', '#FF1A4A', '#F5F0E8', '#FFA500'];
+    const colors = ['#FFD700', '#DC143C', '#FF1A4A', '#F5F0E8', '#10B981'];
     const newParticles: Particle[] = [];
-    const count = 75;
+    const count = 90;
 
     for (let i = 0; i < count; i++) {
       const angle = Math.random() * Math.PI * 2;
-      const speed = 2 + Math.random() * 5;
+      const speed = 2 + Math.random() * 6;
       newParticles.push({
         x: pCanvas.width / 2,
         y: pCanvas.height / 2,
         vx: Math.cos(angle) * speed,
-        vy: Math.sin(angle) * speed - 1.5,
+        vy: Math.sin(angle) * speed - 2,
         alpha: 1,
         color: colors[Math.floor(Math.random() * colors.length)],
-        size: 3 + Math.random() * 4,
+        size: 3 + Math.random() * 4.5,
       });
     }
 
@@ -273,7 +344,7 @@ export default function StrokeCanvas({
         p.x += p.vx;
         p.y += p.vy;
         p.vy += 0.12; // Gravity
-        p.alpha -= 0.016; // Fade
+        p.alpha -= 0.015;
 
         if (p.alpha > 0) {
           ctx.save();
@@ -300,52 +371,32 @@ export default function StrokeCanvas({
     animFrameRef.current = requestAnimationFrame(animate);
   };
 
-  // Euclidean deviation calculation as defined in PRD Section 6.2
-  // D_avg = (1/N) * sum_{i=1}^N min_j sqrt((x_i - x_ref,j)^2 + (y_i - y_ref,j)^2)
-  // Score = max(0, 100 - (D_avg * 1.2))
+  // Evaluate strokes with high-precision gesture recognition
   const handleValidate = async () => {
-    const allPoints = userStrokes.flat();
-    if (allPoints.length < 15) {
-      setFeedback('Goresan terlalu sedikit! Silakan telusuri aksara lebih lengkap.');
+    sound.playClickSound();
+
+    if (userStrokes.length === 0 && currentStroke.length === 0) {
+      setFeedback('Silakan buat goresan aksara di atas kanvas terlebih dahulu.');
       return;
     }
 
-    if (referencePoints.length === 0) {
-      setFeedback('Menunggu inisialisasi aksara target...');
-      return;
-    }
+    const allStrokes = [...userStrokes];
+    if (currentStroke.length > 0) allStrokes.push(currentStroke);
 
-    let totalMinDist = 0;
-    const N = allPoints.length;
+    const result = evaluateUserStrokes(allStrokes, referencePoints, 360, 360);
+    setEvaluation(result);
+    setHeatmapSegments(result.heatmap);
 
-    for (let i = 0; i < N; i++) {
-      const pt = allPoints[i];
-      let minDistSq = Infinity;
-
-      for (let j = 0; j < referencePoints.length; j++) {
-        const ref = referencePoints[j];
-        const dx = pt.x - ref.x;
-        const dy = pt.y - ref.y;
-        const dSq = dx * dx + dy * dy;
-        if (dSq < minDistSq) {
-          minDistSq = dSq;
-        }
-      }
-      totalMinDist += Math.sqrt(minDistSq);
-    }
-
-    const dAvg = totalMinDist / N;
-    const calculatedScore = Math.max(0, Math.min(100, Math.round(100 - dAvg * 1.2)));
-    setScore(calculatedScore);
-
-    const isPassed = calculatedScore >= 75;
-
-    if (isPassed) {
-      setFeedback(`Luar biasa! Akurasi ${calculatedScore}% memenuhi standar kelulusan (>= 75%).`);
+    if (result.isPassed) {
+      setFeedback(
+        `Luar biasa! Skor ${result.score}% (Akurasi: ${result.accuracy}%, Arah: ${result.directionSimilarity}%). Standar kelulusan tercapai!`
+      );
       triggerCelebration();
       onSuccess?.();
     } else {
-      setFeedback(`Akurasi ${calculatedScore}%. Perlu minimal 75% untuk lulus. Coba ikuti siluet lebih presisi!`);
+      setFeedback(
+        `Skor ${result.score}% (Akurasi: ${result.accuracy}%, Arah: ${result.directionSimilarity}%). Minimal 75% untuk lulus. Periksa segmen merah/oranye!`
+      );
     }
 
     // Submit progress to backend
@@ -354,22 +405,22 @@ export default function StrokeCanvas({
       await api.submitProgress({
         session_id: sessionId,
         lesson_id: lessonId,
-        accuracy: calculatedScore,
+        accuracy: result.score,
       });
     } catch (err) {
-      console.warn('Gagal menyimpan progres ke backend:', err);
+      console.warn('Gagal sinkronisasi progres ke backend:', err);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-charcoal-border bg-charcoal-light p-6 shadow-2xl">
+    <div className="flex flex-col items-center rounded-2xl border border-charcoal-border bg-[#141416] p-6 shadow-2xl">
       {/* Title & Info */}
       <div className="mb-4 flex w-full items-center justify-between">
         <div>
           <span className="text-xs font-bold uppercase tracking-widest text-crimson">
-            Modul Tracing Deviasi Euclidean
+            Evaluasi Gestur Presisi 64-Titik
           </span>
           <h3 className="text-lg font-bold text-bone">
             {glyphTitle || `Aksara ${latinSound.toUpperCase()} (${targetGlyph})`}
@@ -384,7 +435,7 @@ export default function StrokeCanvas({
       </div>
 
       {/* Tracing Canvas Container */}
-      <div className="relative overflow-hidden rounded-xl border-2 border-charcoal-border bg-charcoal shadow-inner">
+      <div className="relative overflow-hidden rounded-xl border-2 border-charcoal-border bg-[#0D0D0E] shadow-inner">
         <canvas
           ref={canvasRef}
           width={360}
@@ -406,23 +457,60 @@ export default function StrokeCanvas({
           className="pointer-events-none absolute inset-0"
         />
 
+        {/* Canvas Stroke Count Indicator */}
+        <div className="pointer-events-none absolute top-3 left-3 flex items-center gap-1.5 rounded-lg bg-charcoal/80 px-2.5 py-1 text-[11px] text-bone-dim backdrop-blur-sm">
+          <Layers size={12} className="text-crimson" />
+          <span>{userStrokes.length} Tarikan</span>
+        </div>
+
         {/* Canvas floating hint */}
         {userStrokes.length === 0 && currentStroke.length === 0 && (
           <div className="pointer-events-none absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-charcoal/80 px-3 py-1 text-xs text-bone-dim backdrop-blur-sm">
-            Tuliskan goresan mengikuti siluet kuning
+            Tuliskan goresan mengikuti siluet kuning (Multi-stroke didukung)
           </div>
         )}
       </div>
 
+      {/* Heatmap Legend */}
+      {evaluation && (
+        <div className="mt-3 flex w-full items-center justify-between rounded-xl border border-charcoal-border/50 bg-charcoal/50 px-3 py-1.5 text-[11px]">
+          <span className="font-semibold text-bone-dim">Visual Heatmap:</span>
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1 text-emerald-400">
+              <span className="h-2 w-2 rounded-full bg-emerald-400" /> Presisi
+            </span>
+            <span className="flex items-center gap-1 text-amber-400">
+              <span className="h-2 w-2 rounded-full bg-amber-400" /> Deviasi
+            </span>
+            <span className="flex items-center gap-1 text-rose-500">
+              <span className="h-2 w-2 rounded-full bg-rose-500" /> Melenceng
+            </span>
+          </div>
+        </div>
+      )}
+
       {/* Actions & Controls */}
-      <div className="mt-5 flex w-full flex-wrap items-center justify-between gap-3">
-        <button
-          onClick={handleClear}
-          className="flex items-center gap-1.5 rounded-xl border border-charcoal-border bg-charcoal px-4 py-2 text-sm font-medium text-bone-muted hover:border-crimson hover:text-bone transition-all"
-        >
-          <RotateCcw size={15} />
-          Ulangi
-        </button>
+      <div className="mt-4 flex w-full flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleUndo}
+            disabled={userStrokes.length === 0}
+            className="flex items-center gap-1 rounded-xl border border-charcoal-border bg-charcoal px-3 py-2 text-xs font-medium text-bone-muted hover:border-crimson hover:text-bone disabled:opacity-40 transition-all"
+            title="Batalkan tarikan terakhir"
+          >
+            <Undo2 size={14} />
+            Undo
+          </button>
+
+          <button
+            onClick={handleClear}
+            className="flex items-center gap-1 rounded-xl border border-charcoal-border bg-charcoal px-3 py-2 text-xs font-medium text-bone-muted hover:border-crimson hover:text-bone transition-all"
+            title="Bersihkan seluruh kanvas"
+          >
+            <RotateCcw size={14} />
+            Hapus
+          </button>
+        </div>
 
         <div className="flex items-center gap-2">
           <button
@@ -435,12 +523,15 @@ export default function StrokeCanvas({
             ) : (
               <CheckCircle2 size={16} />
             )}
-            Validasi Goresan
+            Validasi Presisi
           </button>
 
-          {score !== null && score >= 75 && hasNextLesson && onNextLesson && (
+          {evaluation && evaluation.isPassed && hasNextLesson && onNextLesson && (
             <button
-              onClick={onNextLesson}
+              onClick={() => {
+                sound.playClickSound();
+                onNextLesson();
+              }}
               className="flex items-center gap-1.5 rounded-xl bg-gold px-4 py-2 text-sm font-bold text-charcoal shadow-lg shadow-gold/20 hover:bg-gold-dim transition-all"
             >
               Lanjut
@@ -450,37 +541,54 @@ export default function StrokeCanvas({
         </div>
       </div>
 
-      {/* Score and Evaluation Feedback Banner */}
-      {score !== null && (
+      {/* Evaluation Results Banner & Detailed Telemetry */}
+      {evaluation && (
         <div
           className={cn(
-            'mt-5 flex w-full items-center gap-3 rounded-xl border p-4 transition-all',
-            score >= 75
+            'mt-4 flex w-full flex-col gap-2 rounded-xl border p-4 transition-all',
+            evaluation.isPassed
               ? 'border-gold/40 bg-gold/10 text-gold'
               : 'border-crimson/40 bg-crimson/10 text-bone',
           )}
         >
-          {score >= 75 ? (
-            <Trophy size={28} className="shrink-0 text-gold" />
-          ) : (
-            <AlertCircle size={28} className="shrink-0 text-crimson" />
-          )}
-          <div className="flex-1">
-            <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {evaluation.isPassed ? (
+                <Trophy size={24} className="text-gold" />
+              ) : (
+                <AlertCircle size={24} className="text-crimson" />
+              )}
               <span className="text-xs font-bold uppercase tracking-wider">
-                {score >= 75 ? 'Lulus Tantangan!' : 'Akurasi Kurang'}
-              </span>
-              <span className="text-lg font-black font-mono">
-                {score}%
+                {evaluation.isPassed ? 'Lulus Validasi!' : 'Evaluasi Belum Lulus'}
               </span>
             </div>
-            <p className="mt-0.5 text-xs text-bone-muted">{feedback}</p>
+            <span className="text-2xl font-black font-mono">
+              {evaluation.score}%
+            </span>
           </div>
+
+          {/* Telemetry metrics bar */}
+          <div className="grid grid-cols-3 gap-2 border-t border-charcoal-border/40 pt-2 text-[11px] text-bone-muted">
+            <div>
+              <span className="text-bone-dim">Akurasi Bentuk:</span>{' '}
+              <span className="font-mono font-bold text-bone">{evaluation.accuracy}%</span>
+            </div>
+            <div>
+              <span className="text-bone-dim">Arah Vektor:</span>{' '}
+              <span className="font-mono font-bold text-bone">{evaluation.directionSimilarity}%</span>
+            </div>
+            <div>
+              <span className="text-bone-dim">Deviasi Rata-rata:</span>{' '}
+              <span className="font-mono font-bold text-bone">{evaluation.dAvg}px</span>
+            </div>
+          </div>
+
+          <p className="mt-1 text-xs text-bone-muted">{feedback}</p>
         </div>
       )}
 
       {/* Warning/hint when drawing too short */}
-      {feedback && score === null && (
+      {feedback && !evaluation && (
         <div className="mt-4 flex w-full items-center gap-2 rounded-xl border border-charcoal-border bg-charcoal p-3 text-xs text-bone-dim">
           <Sparkles size={14} className="text-gold shrink-0" />
           <span>{feedback}</span>

@@ -59,6 +59,10 @@ func main() {
 		api.GET("/progress/:session_id", handler.GetUserProgress(db))
 	}
 
+	// ── Swagger UI Documentation ──────────────────────────────────────────────
+	r.GET("/swagger", handler.SwaggerUI)
+	r.GET("/swagger/doc.json", handler.SwaggerDoc)
+
 	// ── Start ─────────────────────────────────────────────────────────────────
 	log.Println("[server] BatakScript API running on http://localhost:8080")
 	if err := r.Run(":8080"); err != nil {

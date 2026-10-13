@@ -40,3 +40,4 @@ func GetUserProgress(db *gorm.DB) gin.HandlerFunc {
 		})
 	}
 }
+

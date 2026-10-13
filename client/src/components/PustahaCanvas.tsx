@@ -1,83 +1,100 @@
 'use client';
 
-import { Suspense } from 'react';
+import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
 import {
   OrbitControls,
   Environment,
   ContactShadows,
+  Sparkles,
 } from '@react-three/drei';
 import { PustahaBook } from './PustahaBook';
 
-// Dynamic point light following mouse is inside PustahaBook.tsx via useFrame
-
-interface Props {
+interface PustahaCanvasProps {
   pageIndex: number;
+  foldProgress?: number;
+  sourceCanvas?: HTMLCanvasElement | null;
   onNext: () => void;
   onPrev: () => void;
 }
 
-export default function PustahaCanvas({ pageIndex, onNext, onPrev }: Props) {
+export default function PustahaCanvas({
+  pageIndex,
+  foldProgress = 0.15,
+  sourceCanvas,
+  onNext,
+  onPrev,
+}: PustahaCanvasProps) {
   return (
     <Canvas
-      camera={{ position: [0, 0, 6.5], fov: 45 }}
+      camera={{ position: [0, 0, 7.2], fov: 42 }}
       shadows
-      gl={{ antialias: true, alpha: true }}
+      gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
       style={{ background: 'transparent' }}
     >
-      {/* ── Lighting ── */}
-      {/* Soft ambient fill */}
-      <ambientLight intensity={0.55} color="#FFF8E7" />
+      {/* ── Lighting Studio ── */}
+      <ambientLight intensity={0.65} color="#FFF5DC" />
 
-      {/* Studio key light */}
+      {/* Cinematic directional key light with warm golden tone */}
       <directionalLight
-        position={[4, 6, 4]}
-        intensity={1.4}
-        color="#FFFBE0"
+        position={[5, 7, 5]}
+        intensity={1.6}
+        color="#FFF2D6"
         castShadow
         shadow-mapSize={[1024, 1024]}
+        shadow-bias={-0.0001}
       />
 
-      {/* Rim / fill light */}
-      <directionalLight position={[-4, 2, -2]} intensity={0.5} color="#FFD700" />
+      {/* Batak crimson rim accent light */}
+      <directionalLight position={[-5, 3, -3]} intensity={0.8} color="#FF2A4D" />
 
-      {/* Dynamic mouse point light (handled inside book via useFrame) */}
-      <pointLight position={[0, 0, 8]} intensity={1.8} color="#FFE080" distance={18} decay={2} />
+      {/* Warm amber center glow */}
+      <pointLight position={[0, 1, 6]} intensity={2.2} color="#FFD700" distance={15} decay={2} />
 
-      {/* ── Environment (PBR reflections) ── */}
+      {/* ── Mystical Gold Embers / Dust Particles ── */}
+      <Sparkles
+        count={50}
+        scale={[7, 5, 4]}
+        size={3.2}
+        speed={0.35}
+        opacity={0.65}
+        color="#FFD700"
+      />
+
+      {/* ── Environment reflections ── */}
       <Environment preset="studio" />
 
-      {/* ── Pustaha book ── */}
+      {/* ── Pustaha Book 3D Model ── */}
       <Suspense fallback={null}>
         <PustahaBook
           pageIndex={pageIndex}
+          foldProgress={foldProgress}
+          sourceCanvas={sourceCanvas}
           onNext={onNext}
           onPrev={onPrev}
         />
       </Suspense>
 
-      {/* ── Ground shadow ── */}
+      {/* ── Soft Cinematic Ground Shadow ── */}
       <ContactShadows
-        position={[0, -2.4, 0]}
-        opacity={0.45}
-        scale={8}
-        blur={2.5}
-        far={5}
+        position={[0, -2.1, 0]}
+        opacity={0.55}
+        scale={9}
+        blur={2.4}
+        far={6}
       />
 
-      {/* ── Controls ── */}
+      {/* ── Camera Orbit Controls ── */}
       <OrbitControls
         enablePan={false}
         enableZoom={true}
-        minDistance={3.5}
+        minDistance={3.8}
         maxDistance={12}
         minPolarAngle={Math.PI / 6}
-        maxPolarAngle={Math.PI / 1.6}
-        autoRotate={false}
-        dampingFactor={0.08}
+        maxPolarAngle={Math.PI / 1.7}
+        dampingFactor={0.06}
         enableDamping
       />
     </Canvas>
   );
 }
-

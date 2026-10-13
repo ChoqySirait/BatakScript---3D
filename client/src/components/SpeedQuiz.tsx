@@ -13,6 +13,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { sound } from '@/lib/audio';
 
 interface QuizQuestion {
   id: number;
@@ -214,6 +215,7 @@ export default function SpeedQuiz() {
 
     const isCorrect = idx === currentQ.correctAnswer;
     if (isCorrect) {
+      sound.playClickSound();
       const basePoints = 100;
       const timeBonus = Math.round((timeLeft / QUESTION_TIME) * 100);
       const streakBonus = (streak + 1) * 25;
@@ -227,22 +229,26 @@ export default function SpeedQuiz() {
         setMaxStreak(nextStreak);
       }
     } else {
+      sound.playClickSound();
       setStreak(0);
     }
   };
 
   const handleNextQuestion = () => {
+    sound.playClickSound();
     if (currentIdx + 1 < QUIZ_BANK.length) {
       setCurrentIdx((prev) => prev + 1);
       setSelectedAnswer(null);
       setIsAnswered(false);
       setTimeLeft(QUESTION_TIME);
     } else {
+      sound.playEthnicSuccessChime();
       setIsFinished(true);
     }
   };
 
   const handleRestart = () => {
+    sound.playClickSound();
     setCurrentIdx(0);
     setSelectedAnswer(null);
     setIsAnswered(false);
@@ -516,3 +522,4 @@ export default function SpeedQuiz() {
     </div>
   );
 }
+

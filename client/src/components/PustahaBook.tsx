@@ -1,12 +1,12 @@
 'use client';
 
-import { useRef, useState, useEffect, useMemo } from 'react';
-import { useFrame, useThree } from '@react-three/fiber';
-import { Html, Text, RoundedBox } from '@react-three/drei';
+import React, { useRef, useState, useEffect, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import { Html } from '@react-three/drei';
 import * as THREE from 'three';
 
 // ── 19 Ina ni Surat data ─────────────────────────────────────────────────────
-const INA_NI_SURAT = [
+export const INA_NI_SURAT = [
   { glyph: '\u1BC0', latin: 'A',   sound: '/a/',    unicode: 'U+1BC0' },
   { glyph: '\u1BC2', latin: 'HA',  sound: '/ha/',   unicode: 'U+1BC2' },
   { glyph: '\u1BC5', latin: 'BA',  sound: '/ba/',   unicode: 'U+1BC5' },
@@ -28,158 +28,116 @@ const INA_NI_SURAT = [
   { glyph: '\u1BE5', latin: 'U',   sound: '/u/',    unicode: 'U+1BE5' },
 ];
 
-// ── Dynamic point light that follows mouse ────────────────────────────────────
-function DynamicLight() {
-  const lightRef = useRef<THREE.PointLight>(null);
-
-  useFrame(({ mouse, viewport }) => {
-    if (lightRef.current) {
-      lightRef.current.position.x = (mouse.x * viewport.width) / 2;
-      lightRef.current.position.y = (mouse.y * viewport.height) / 2;
-    }
-  });
-
-  return (
-    <pointLight
-      ref={lightRef}
-      position={[0, 0, 6]}
-      intensity={3}
-      color="#FFD700"
-      distance={20}
-      decay={2}
-    />
-  );
-}
-
-// ── Wood grain cover texture ──────────────────────────────────────────────────
-function useCoverTexture() {
+// ── Organic Bark Texture Generator (Laklak Alim Batak) ──────────────────────
+function useBarkTexture() {
   return useMemo(() => {
+    if (typeof document === 'undefined') return null;
     const canvas = document.createElement('canvas');
     canvas.width = 512;
     canvas.height = 700;
     const ctx = canvas.getContext('2d')!;
 
-    // Base wood colour
-    ctx.fillStyle = '#5C3A1E';
+    // Rich earthy bark base
+    ctx.fillStyle = '#422817';
     ctx.fillRect(0, 0, 512, 700);
 
-    // Wood grain lines
-    const rng = (() => { let s = 42; return () => { s = (s * 1664525 + 1013904223) & 0xffffffff; return (s >>> 0) / 0xffffffff; }; })();
-    for (let i = 0; i < 100; i++) {
-      const y = rng() * 700;
-      const alpha = 0.05 + rng() * 0.15;
-      ctx.strokeStyle = `rgba(255,200,120,${alpha})`;
-      ctx.lineWidth = 1 + rng() * 2;
+    // Natural wood bark fibers
+    for (let i = 0; i < 240; i++) {
+      const y = Math.random() * 700;
+      const alpha = 0.04 + Math.random() * 0.12;
+      ctx.strokeStyle = `rgba(210, 160, 100, ${alpha})`;
+      ctx.lineWidth = 1 + Math.random() * 2.5;
       ctx.beginPath();
       ctx.moveTo(0, y);
-      for (let x = 0; x <= 512; x += 16) {
-        ctx.lineTo(x, y + Math.sin(x * 0.03 + rng()) * 6);
+      for (let x = 0; x <= 512; x += 20) {
+        ctx.lineTo(x, y + Math.sin(x * 0.02 + i) * 8);
       }
       ctx.stroke();
     }
 
-    // Outer border
-    ctx.strokeStyle = '#3D2010';
-    ctx.lineWidth = 10;
-    ctx.strokeRect(5, 5, 502, 690);
-    ctx.strokeStyle = '#A0724A';
+    // Gorga-inspired geometric border engraving
+    ctx.strokeStyle = '#8B5A2B';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(10, 10, 492, 680);
+    ctx.strokeStyle = '#D4AF37';
     ctx.lineWidth = 2;
     ctx.strokeRect(18, 18, 476, 664);
 
-    // Title
-    ctx.font = 'bold 34px Arial, sans-serif';
-    ctx.fillStyle = '#FFD700';
-    ctx.shadowColor = '#FFD700';
-    ctx.shadowBlur = 16;
-    ctx.textAlign = 'center';
-    ctx.fillText('PUSTAHA', 256, 90);
-    ctx.fillText('LAKLAK', 256, 132);
-    ctx.shadowBlur = 0;
-
-    // Divider
-    ctx.strokeStyle = '#A0724A';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(60, 155); ctx.lineTo(452, 155);
-    ctx.stroke();
-
-    // Subtitle
-    ctx.font = '18px Arial, sans-serif';
-    ctx.fillStyle = '#C8A060';
-    ctx.fillText('Surat Batak Toba', 256, 178);
-
-    return new THREE.CanvasTexture(canvas);
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.wrapS = THREE.ClampToEdgeWrapping;
+    tex.wrapT = THREE.ClampToEdgeWrapping;
+    return tex;
   }, []);
 }
 
-// ── Per-glyph page texture ────────────────────────────────────────────────────
+// ── Per-glyph parchment texture generator ────────────────────────────────────
 function usePageTexture(idx: number) {
   const [tex, setTex] = useState<THREE.CanvasTexture | null>(null);
   const { glyph, latin, sound, unicode } = INA_NI_SURAT[idx];
 
   useEffect(() => {
+    if (typeof document === 'undefined') return;
     const build = () => {
       const canvas = document.createElement('canvas');
       canvas.width = 512;
       canvas.height = 700;
       const ctx = canvas.getContext('2d')!;
 
-      // Parchment background
-      ctx.fillStyle = '#F5F0E8';
+      // Aged laklak bark paper background
+      ctx.fillStyle = '#F5EED9';
       ctx.fillRect(0, 0, 512, 700);
 
-      // Subtle grain
-      for (let i = 0; i < 2000; i++) {
-        const x = Math.random() * 512, y = Math.random() * 700;
-        ctx.fillStyle = `rgba(120,90,50,${Math.random() * 0.07})`;
+      // Fiber speckles
+      for (let i = 0; i < 1500; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 700;
+        ctx.fillStyle = `rgba(100, 70, 40, ${Math.random() * 0.08})`;
         ctx.fillRect(x, y, 2, 2);
       }
 
-      // Border
-      ctx.strokeStyle = '#C8A060';
-      ctx.lineWidth = 6;
+      // Traditional border
+      ctx.strokeStyle = '#B38B59';
+      ctx.lineWidth = 4;
       ctx.strokeRect(14, 14, 484, 672);
 
-      // Chapter label
-      ctx.font = 'bold 16px Arial, sans-serif';
-      ctx.fillStyle = '#8B6040';
+      // Header
+      ctx.font = 'bold 15px Arial, sans-serif';
+      ctx.fillStyle = '#6E4728';
       ctx.textAlign = 'center';
-      ctx.fillText(`Ina ni Surat · ${idx + 1} / ${INA_NI_SURAT.length}`, 256, 52);
+      ctx.fillText(`Pustaha Laklak · Bab ${idx + 1} / ${INA_NI_SURAT.length}`, 256, 50);
 
-      // Divider
       ctx.strokeStyle = '#C8A060';
       ctx.lineWidth = 1;
       ctx.beginPath();
-      ctx.moveTo(80, 66); ctx.lineTo(432, 66);
+      ctx.moveTo(80, 65);
+      ctx.lineTo(432, 65);
       ctx.stroke();
 
-      // Glyph (gold glow)
+      // Glyphs with golden glow
       ctx.save();
-      ctx.font = '240px "Noto Sans Batak", serif';
-      ctx.shadowColor = '#FFD700';
-      ctx.shadowBlur = 40;
-      ctx.fillStyle = '#FFD700';
+      ctx.font = '220px "Noto Sans Batak", serif';
+      ctx.shadowColor = '#D4AF37';
+      ctx.shadowBlur = 32;
+      ctx.fillStyle = '#D4AF37';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(glyph, 256, 310);
+      ctx.fillText(glyph, 256, 300);
       ctx.restore();
 
-      // Latin name
-      ctx.font = 'bold 48px Arial, sans-serif';
+      // Latin Name
+      ctx.font = 'bold 44px Arial, sans-serif';
       ctx.fillStyle = '#3D2010';
       ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(latin, 256, 510);
+      ctx.fillText(latin, 256, 490);
 
-      // IPA sound
-      ctx.font = '26px Arial, sans-serif';
-      ctx.fillStyle = '#8B6040';
-      ctx.fillText(sound, 256, 548);
+      // IPA & Unicode
+      ctx.font = '24px Arial, sans-serif';
+      ctx.fillStyle = '#7A5230';
+      ctx.fillText(sound, 256, 530);
 
-      // Unicode
-      ctx.font = '18px "Courier New", monospace';
-      ctx.fillStyle = '#C8A060';
-      ctx.fillText(unicode, 256, 650);
+      ctx.font = '16px "Courier New", monospace';
+      ctx.fillStyle = '#A07040';
+      ctx.fillText(unicode, 256, 640);
 
       const t = new THREE.CanvasTexture(canvas);
       setTex(t);
@@ -195,100 +153,208 @@ function usePageTexture(idx: number) {
   return tex;
 }
 
-// ── Main Pustaha book mesh ────────────────────────────────────────────────────
-interface BookProps {
+// ── Props ────────────────────────────────────────────────────────────────────
+interface PustahaBookProps {
   pageIndex: number;
+  foldProgress?: number; // 0.0 (fully open flat/accordion) to 1.0 (folded stack)
+  sourceCanvas?: HTMLCanvasElement | null; // Live mirrored canvas
   onNext: () => void;
   onPrev: () => void;
 }
 
-export function PustahaBook({ pageIndex, onNext, onPrev }: BookProps) {
-  const groupRef = useRef<THREE.Group>(null);
-  const coverTex = useCoverTexture();
-  const pageTex  = usePageTexture(pageIndex);
+export function PustahaBook({
+  pageIndex,
+  foldProgress = 0.15,
+  sourceCanvas,
+  onNext,
+  onPrev,
+}: PustahaBookProps) {
+  const rootGroupRef = useRef<THREE.Group>(null);
+  const leftPivotRef = useRef<THREE.Group>(null);
+  const rightPivotRef = useRef<THREE.Group>(null);
 
-  // Gentle floating + subtle yaw
+  const barkTex = useBarkTexture();
+  const pageTex = usePageTexture(pageIndex);
+
+  // Dynamic CanvasTexture for Real-Time 3D Mirroring
+  const mirrorTexRef = useRef<THREE.CanvasTexture | null>(null);
+
+  useEffect(() => {
+    if (sourceCanvas) {
+      const tex = new THREE.CanvasTexture(sourceCanvas);
+      tex.minFilter = THREE.LinearFilter;
+      tex.magFilter = THREE.LinearFilter;
+      tex.generateMipmaps = false;
+      mirrorTexRef.current = tex;
+    } else {
+      mirrorTexRef.current = null;
+    }
+  }, [sourceCanvas]);
+
+  // Dimensions of each accordion panel
+  const W = 2.2;
+  const H = 3.2;
+  const D = 0.08;
+
+  // Real-time animation loop: fold lerp + floating bob + mirror updates
   useFrame(({ clock }) => {
-    if (!groupRef.current) return;
     const t = clock.elapsedTime;
-    groupRef.current.position.y  = Math.sin(t * 0.6) * 0.08;
-    groupRef.current.rotation.z  = Math.sin(t * 0.4) * 0.015;
+
+    // Gentle floating breathing motion
+    if (rootGroupRef.current) {
+      rootGroupRef.current.position.y = Math.sin(t * 0.7) * 0.06;
+      rootGroupRef.current.rotation.x = Math.sin(t * 0.5) * 0.015;
+    }
+
+    // Live update mirrored texture per frame
+    if (mirrorTexRef.current && sourceCanvas) {
+      mirrorTexRef.current.needsUpdate = true;
+    }
+
+    // Accordion fold rotation angles
+    // foldProgress 0 = flat open (~0.25 rad), 1 = tightly folded accordion (~2.95 rad)
+    const targetLeftAngle = THREE.MathUtils.lerp(0.35, 2.95, foldProgress);
+    const targetRightAngle = THREE.MathUtils.lerp(-0.35, -2.95, foldProgress);
+
+    if (leftPivotRef.current) {
+      leftPivotRef.current.rotation.y = THREE.MathUtils.lerp(
+        leftPivotRef.current.rotation.y,
+        targetLeftAngle,
+        0.08
+      );
+    }
+    if (rightPivotRef.current) {
+      rightPivotRef.current.rotation.y = THREE.MathUtils.lerp(
+        rightPivotRef.current.rotation.y,
+        targetRightAngle,
+        0.08
+      );
+    }
   });
 
-  const W = 2.6, H = 3.6, D = 0.22;
-
   return (
-    <group ref={groupRef}>
-      {/* ── Back cover ── */}
-      <mesh position={[0, 0, -(D / 2 + 0.06)]} castShadow>
-        <boxGeometry args={[W + 0.12, H + 0.12, 0.1]} />
-        <meshStandardMaterial color="#3D2010" roughness={0.9} metalness={0.05} />
-      </mesh>
-
-      {/* ── Pages block ── */}
-      <mesh position={[0, 0, 0]} castShadow receiveShadow>
-        <boxGeometry args={[W - 0.08, H - 0.06, D]} />
-        <meshStandardMaterial color="#EDE5CC" roughness={1} />
-      </mesh>
-
-      {/* ── Front cover (wood texture) ── */}
-      <mesh position={[0, 0, D / 2 + 0.06]} castShadow>
-        <boxGeometry args={[W + 0.12, H + 0.12, 0.1]} />
-        <meshStandardMaterial map={coverTex} roughness={0.85} metalness={0.08} />
-      </mesh>
-
-      {/* ── Current glyph page (front face of pages block) ── */}
-      {pageTex && (
-        <mesh position={[0, 0, D / 2 + 0.01]}>
-          <planeGeometry args={[W - 0.1, H - 0.08]} />
+    <group ref={rootGroupRef} position={[0, 0, 0]}>
+      {/* ═════════════════════════════════════════════════════════════════════
+          PANEL TENGAH (CENTER PANEL) — BASE DENGAN KANVAS UTAMA & MIRRORING
+          ═════════════════════════════════════════════════════════════════════ */}
+      <group position={[0, 0, 0]}>
+        {/* Core bark panel slab */}
+        <mesh castShadow receiveShadow position={[0, 0, 0]}>
+          <boxGeometry args={[W, H, D]} />
           <meshStandardMaterial
-            map={pageTex}
-            roughness={0.9}
-            metalness={0}
-            transparent={false}
+            map={barkTex || undefined}
+            color={barkTex ? '#ffffff' : '#422817'}
+            roughness={0.88}
+            metalness={0.06}
           />
         </mesh>
-      )}
 
-      {/* ── Spine detail ── */}
-      <mesh position={[-(W / 2 + 0.05), 0, 0]}>
-        <boxGeometry args={[0.04, H + 0.12, D + 0.14]} />
-        <meshStandardMaterial color="#2A1508" roughness={0.95} />
-      </mesh>
+        {/* Front surface: Page texture or Real-Time Mirror Canvas */}
+        <mesh position={[0, 0, D / 2 + 0.005]}>
+          <planeGeometry args={[W - 0.1, H - 0.1]} />
+          <meshStandardMaterial
+            map={mirrorTexRef.current || pageTex || undefined}
+            roughness={0.82}
+            metalness={0.02}
+            emissive={mirrorTexRef.current ? '#3A2010' : '#1A1208'}
+            emissiveIntensity={0.2}
+          />
+        </mesh>
 
-      {/* ── Click zones (invisible planes) ── */}
-      {/* Previous — left half */}
-      <mesh
-        position={[-(W / 4), 0, D / 2 + 0.15]}
-        onClick={e => { e.stopPropagation(); onPrev(); }}
-      >
-        <planeGeometry args={[W / 2, H]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+        {/* Central interactive click zones */}
+        <mesh
+          position={[-W / 4, 0, D / 2 + 0.08]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onPrev();
+          }}
+        >
+          <planeGeometry args={[W / 2, H]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
 
-      {/* Next — right half */}
-      <mesh
-        position={[W / 4, 0, D / 2 + 0.15]}
-        onClick={e => { e.stopPropagation(); onNext(); }}
-      >
-        <planeGeometry args={[W / 2, H]} />
-        <meshBasicMaterial transparent opacity={0} />
-      </mesh>
+        <mesh
+          position={[W / 4, 0, D / 2 + 0.08]}
+          onClick={(e) => {
+            e.stopPropagation();
+            onNext();
+          }}
+        >
+          <planeGeometry args={[W / 2, H]} />
+          <meshBasicMaterial transparent opacity={0} />
+        </mesh>
+      </group>
 
-      {/* ── Hover labels ── */}
-      <Html position={[-(W / 4), -(H / 2 + 0.3), D / 2 + 0.1]} center>
-        <div className="pointer-events-none select-none rounded-full bg-charcoal/80 px-3 py-1 text-xs text-bone-dim">
-          ← Sebelumnya
-        </div>
-      </Html>
-      <Html position={[W / 4, -(H / 2 + 0.3), D / 2 + 0.1]} center>
-        <div className="pointer-events-none select-none rounded-full bg-charcoal/80 px-3 py-1 text-xs text-bone-dim">
-          Berikutnya →
+      {/* ═════════════════════════════════════════════════════════════════════
+          ENGSEL KIRI & PANEL KIRI (LEFT HINGED ACCORDION PANEL)
+          ═════════════════════════════════════════════════════════════════════ */}
+      <group ref={leftPivotRef} position={[-W / 2, 0, 0]}>
+        {/* Flexible accordion leather seam connector */}
+        <mesh position={[0, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.025, H + 0.04, 12]} />
+          <meshStandardMaterial color="#221208" roughness={0.9} />
+        </mesh>
+
+        {/* Panel body extending to the left from the hinge */}
+        <mesh position={[-W / 2, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[W, H, D]} />
+          <meshStandardMaterial
+            map={barkTex || undefined}
+            color={barkTex ? '#ffffff' : '#3E2413'}
+            roughness={0.85}
+          />
+        </mesh>
+
+        {/* Engraved Gorga ornament on left inner panel */}
+        <mesh position={[-W / 2, 0, D / 2 + 0.005]}>
+          <planeGeometry args={[W - 0.15, H - 0.15]} />
+          <meshStandardMaterial
+            color="#EFE2C6"
+            roughness={0.9}
+            map={pageTex || undefined}
+          />
+        </mesh>
+      </group>
+
+      {/* ═════════════════════════════════════════════════════════════════════
+          ENGSEL KANAN & PANEL KANAN (RIGHT HINGED ACCORDION PANEL)
+          ═════════════════════════════════════════════════════════════════════ */}
+      <group ref={rightPivotRef} position={[W / 2, 0, 0]}>
+        {/* Flexible accordion leather seam connector */}
+        <mesh position={[0, 0, 0]}>
+          <cylinderGeometry args={[0.025, 0.025, H + 0.04, 12]} />
+          <meshStandardMaterial color="#221208" roughness={0.9} />
+        </mesh>
+
+        {/* Panel body extending to the right from the hinge */}
+        <mesh position={[W / 2, 0, 0]} castShadow receiveShadow>
+          <boxGeometry args={[W, H, D]} />
+          <meshStandardMaterial
+            map={barkTex || undefined}
+            color={barkTex ? '#ffffff' : '#3E2413'}
+            roughness={0.85}
+          />
+        </mesh>
+
+        {/* Gorga pattern on right inner panel */}
+        <mesh position={[W / 2, 0, D / 2 + 0.005]}>
+          <planeGeometry args={[W - 0.15, H - 0.15]} />
+          <meshStandardMaterial
+            color="#EFE2C6"
+            roughness={0.9}
+            map={pageTex || undefined}
+          />
+        </mesh>
+      </group>
+
+      {/* Navigation hints floating below center book */}
+      <Html position={[0, -H / 2 - 0.35, D / 2]} center>
+        <div className="pointer-events-none flex select-none items-center gap-2 rounded-full border border-charcoal-border/50 bg-charcoal/80 px-4 py-1 text-[11px] text-bone-muted backdrop-blur-md">
+          <span>← Halaman Lalu</span>
+          <span className="text-crimson">•</span>
+          <span>Halaman Lanjut →</span>
         </div>
       </Html>
     </group>
   );
 }
-
-export { INA_NI_SURAT };
-
