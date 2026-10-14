@@ -55,3 +55,4 @@ export function extractGlyphReferencePoints(
   referenceCache.set(glyph, points);
   return points;
 }
+
