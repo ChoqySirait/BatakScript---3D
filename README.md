@@ -1,4 +1,4 @@
-# ᯅ BatakScript 3D — World-Class Diegetic Experience
+# ᯅ BatakScript 3D — World-Class Diegetic Experience #
 
 > **BatakScript 3D** memadukan nilai arkeologis naskah kuno Batak (*Pustaha Laklak*) dengan teknologi grafis modern in-browser (*Three.js, WebGL/GLSL Shaders, Web Audio API, & Golang*).
 
